@@ -5,6 +5,8 @@ import math
 import matplotlib.pyplot as plt
 import scipy
 from scipy import signal
+from scipy.signal import argrelextrema
+from scipy.signal import find_peaks
 import numpy as np
 
 
@@ -76,11 +78,15 @@ def get_intensity_spectrum(roi_pixels):
 
     # Savgol params: array, window length, polynomial order
     smooth_intensity = scipy.signal.savgol_filter(intensity_array, 15, 3)
-    # plt.scatter(distance_array, intensity_array)
-    # plt.plot(distance_array, intensity_array)
 
+    # Getting Relative Minima
+    thresh = 40
+    peaks, _ = find_peaks(smooth_intensity * -1)
+    plt.scatter(peaks, smooth_intensity[peaks])
+    plt.scatter(distance_array, smooth_intensity)
+    # Plotting
+    # plt.scatter(minima_distance, minima, color='green')
     plt.plot(distance_array, smooth_intensity, color='purple')
-    # plt.plot(distance_array, deriv, color='green')
     plt.xlabel('Distance in Pixels')
     plt.ylabel('8 bit Intensity')
     plt.title('Intensity Plot')

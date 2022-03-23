@@ -8,6 +8,7 @@ from scipy import signal
 from scipy.signal import argrelextrema
 from scipy.signal import find_peaks
 import numpy as np
+import imageio
 
 IMAGE_PATH = 'practice image.tif'
 IMG = cv2.imread(IMAGE_PATH, cv2.IMREAD_COLOR)
@@ -136,28 +137,41 @@ def generate_intensity_time_plot(page_min, page_max):
 
     # Smooth Curve Slightly to eliminate getting two peaks in adjacent images just because of noise
     smooth_y = scipy.ndimage.gaussian_filter1d(intensity_array, sigma=0.6)
-    peaks = scipy.signal.find_peaks(-1 * smooth_y)
 
-    peak_y = [smooth_y[i] for i in peaks[0]]
+    threshold = ((max(smooth_y) - min(smooth_y))/2 + min(smooth_y))
+    peaks = [(index, value) for index, value in enumerate(smooth_y) if value <= threshold]
+
+
     plt.plot(np.arange(0, 150, 1), smooth_y, 'purple')
+    plt.plot(np.arange(0, 150, 1), np.full((150,), threshold), 'green')
+
     # plt.plot(np.arange(0, 150, 1), intensity_array, 'orange')
-    plt.scatter(peaks[0], peak_y)
-    plt.show()
-    print(len(peaks[0]))
-    print(len(peaks[0]) / (page_max - page_min + 1))
-    return peaks[0]
+    plt.scatter([i for (i, j) in peaks], [j for (i, j) in peaks])
+    plt.savefig('plot.png')
+    print(len(peaks))
+    print(len(peaks) / (page_max - page_min + 1))
+    return [i for (i, j) in peaks]
+
+
+def generate_multi_page_tiff_with_guesses(peak_indices):
+    # Generate validation images
+    ret, images = cv2.imreadmulti('rgbc.tif')
+    list_of_images = []
+
+    for i in range(0, 150):
+        IMG = images[i]
+        clean_image_copy = IMG.copy()
+        ROI = ImagejRoi.fromfile('polygon.roi')
+        if i in peak_indices:
+            roi_px = draw_roi(image=IMG, imagej_roi=ROI, color=[0, 250, 0])
+        else:
+            roi_px = draw_roi(image=IMG, imagej_roi=ROI, color=[250, 0, 0])
+        list_of_images.append(IMG)
+
+    multi_page_tiff_array = np.stack(tuple(list_of_images), axis=0)
+    imageio.mimwrite('multi-page_with_guesses.tiff', multi_page_tiff_array)
 
 
 p = generate_intensity_time_plot(0, 150)
+generate_multi_page_tiff_with_guesses(peak_indices=p)
 
-# Generate validation images
-ret, images = cv2.imreadmulti('rgbc.tif')
-for i in range(0, 150):
-    IMG = images[i]
-    clean_image_copy = IMG.copy()
-    ROI = ImagejRoi.fromfile('polygon.roi')
-    if i in p:
-        roi_px = draw_roi(image=IMG, imagej_roi=ROI, color=[200, 200, 0])
-    else:
-        roi_px = draw_roi(image=IMG, imagej_roi=ROI, color=[128, 0, 128])
-    cv2.imwrite(f'leaflets/{i}.png', IMG)
